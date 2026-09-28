@@ -1,5 +1,4 @@
 Dataset
-Models/Bert
-Models/binary_evidence_bert/
+Models/
 __pycache__/
 *.py[cod]

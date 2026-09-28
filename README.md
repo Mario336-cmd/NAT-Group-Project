@@ -10,12 +10,13 @@
 - [Project Overview](#project-overview)
 - [Project Requirements](#project-requirements)
 - [Original FEVER Dataset](#original-fever-dataset)
+- [Project Structure](#project-structure)
 - [Dataset Preparation and Exploration](#dataset-preparation-and-exploration)
 - [Annotated Evidence Preparation](#annotated-evidence-preparation)
 - [Classical Model Training](#classical-model-training)
 - [Transformer Model Training](#transformer-model-training)
-- [Model Evaluation and Comparison](#model-evaluation-and-comparison)
-- [Evidence Retrieval](#evidence-retrieval)
+- [Model Evaluation](#model-evaluation)
+- [TODO: Evidence Retrieval](#todo-evidence-retrieval)
 
 ## Project Overview
 
@@ -233,6 +234,8 @@ Dataset/Processed/test.csv
 ```
 
 ## Classical Model Training
+
+After cloning the repository, you do not need to create `Models/` manually. The shared `begin_run()` function in `Python Scripts/train_classical.py` creates `Models/` and the required model/run subfolders automatically. Both `train_classical.py` and `train_transformer.py` use this function when starting a training run.
 
 **Python file:** [train_classical.py](Python%20Scripts/train_classical.py)
 
