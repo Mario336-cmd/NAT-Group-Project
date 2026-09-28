@@ -1,0 +1,82 @@
+{
+  "records": 15222,
+  "accuracy": 0.9454736565497307,
+  "macro_f1": 0.9308822391514155,
+  "classification_report": {
+    "SUPPORTS": {
+      "precision": 0.9561834928015738,
+      "recall": 0.9691833590138675,
+      "f1-score": 0.9626395390709399,
+      "support": 11033.0
+    },
+    "REFUTES": {
+      "precision": 0.9158207477098291,
+      "recall": 0.8830269754117928,
+      "f1-score": 0.8991249392318911,
+      "support": 4189.0
+    },
+    "accuracy": 0.9454736565497307,
+    "macro avg": {
+      "precision": 0.9360021202557014,
+      "recall": 0.9261051672128302,
+      "f1-score": 0.9308822391514155,
+      "support": 15222.0
+    },
+    "weighted avg": {
+      "precision": 0.9450759156639231,
+      "recall": 0.9454736565497307,
+      "f1-score": 0.945160715084225,
+      "support": 15222.0
+    }
+  },
+  "one_vs_rest_rates": {
+    "SUPPORTS": {
+      "tp": 10693,
+      "fn": 340,
+      "fp": 490,
+      "tn": 3699,
+      "false_positive_rate": 0.11697302458820721,
+      "false_negative_rate": 0.030816640986132512
+    },
+    "REFUTES": {
+      "tp": 3699,
+      "fn": 490,
+      "fp": 340,
+      "tn": 10693,
+      "false_positive_rate": 0.030816640986132512,
+      "false_negative_rate": 0.11697302458820721
+    }
+  },
+  "labels": [
+    "SUPPORTS",
+    "REFUTES"
+  ],
+  "confusion_matrix": [
+    [
+      10693,
+      340
+    ],
+    [
+      490,
+      3699
+    ]
+  ],
+  "evaluation": {
+    "experiment": "binary_evidence_bert",
+    "run_id": "20260928T123142_b12ec98f",
+    "split": "test",
+    "prepared_identity": "ed598ea516aa6e43d3c1fc34de0a65f4de89ce72cfeffb6e153dfea7677d614f",
+    "model_files": {
+      "checkpoint/config.json": "9f88e54002461a8a479eb10ba78ee31142ba43a421694fac7bf2d54f495483ab",
+      "checkpoint/model.safetensors": "dcfc9c6327ec4ee563a88c7af614b02ff6548f5ddaef840b293f8c137b12d796",
+      "checkpoint/tokenizer.json": "d241a60d5e8f04cc1b2b3e9ef7a4921b27bf526d9f6050ab90f9267a1f9e5c66",
+      "checkpoint/tokenizer_config.json": "1677901b0243cd63e328732e6bcbf956a83dc6690a97eeed214eea7655fc3286",
+      "configuration.json": "4ca85a6ed8fcc407147078c8fa91d5b2fd2ff6698eabd512dbf8a3e7a1d01592",
+      "LOCKED.json": "67844682cfea46bf87896be1a727062bdc835a048d07ef6beeb69f1c3850cba9",
+      "resume.pt": "ee443533767f408fdf7263ec127688c7e7eff0376633ce06892cd8085b9fc5c7",
+      "summary.json": "544f627f4ac49bef4610555836dfb309a80ce3c07b7a2f7c19604695476efdde",
+      "training_history.json": "7dc1e361e9a1865ef2bdec457eb58fdd9c6d4798753c5ad8d924bd1e83d7eebe"
+    },
+    "lock_sha256": "67844682cfea46bf87896be1a727062bdc835a048d07ef6beeb69f1c3850cba9"
+  }
+}

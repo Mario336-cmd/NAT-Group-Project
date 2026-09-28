@@ -1,0 +1,54 @@
+{
+  "seed": 42,
+  "tokenizer": "bert-base-uncased",
+  "model_revision": "86b5e0934494bd15c9632b12f734a8a67f723594",
+  "preparation": {
+    "source": "train.jsonl",
+    "split_policy": "stratified_70_15_15",
+    "train_fraction": 0.7,
+    "validation_fraction": 0.15,
+    "test_fraction": 0.15,
+    "questionable_duplicates": "exclude_group",
+    "conflicting_labels": "exclude_group"
+  },
+  "classical": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "max_features": 50000,
+    "min_df": 2,
+    "max_df": 1.0,
+    "lowercase": true,
+    "sublinear_tf": true,
+    "norm": "l2",
+    "smooth_idf": true,
+    "C_candidates": [
+      0.1,
+      1.0,
+      10.0
+    ],
+    "max_iter": 1000,
+    "tol": 0.0001
+  },
+  "bert": {
+    "learning_rate": 2e-05,
+    "batch_size_claims": 8,
+    "gradient_accumulation": 2,
+    "max_length": 512,
+    "max_epochs": 5,
+    "patience": 2,
+    "gradient_clipping": 1.0,
+    "weight_decay": 0.01,
+    "adam_betas": [
+      0.9,
+      0.999
+    ],
+    "adam_epsilon": 1e-08,
+    "scheduler": "constant",
+    "gradient_checkpointing": true,
+    "precision": "fp32",
+    "chunk_forward_batch_size": 8,
+    "resume_checkpoint_every_steps": 100
+  }
+}
