@@ -14,12 +14,6 @@ CORPUS_DIR = ROOT / "Dataset/Index"
 WIKI_DB = ROOT / "Dataset/Cache/fever_wiki_all_sets.sqlite3"
 PASSAGES = CORPUS_DIR / "passages.jsonl"
 
-DEMO_CLAIMS = [
-    "Nikolaj Coster-Waldau worked with the Fox Broadcasting Company.",
-    "Purple elephants run the Danish parliament.",
-]
-
-
 def pick_distractors(count, exclude, seed=42):
     """Random Wikipedia pages no claim cites, so retrievers must skip irrelevant text."""
     with closing(sqlite3.connect(WIKI_DB.resolve().as_uri() + "?mode=ro", uri=True)) as con:
@@ -86,13 +80,6 @@ def gold_sets(row):
 def found_complete(row, hits):
     got = {(h["page"], h["sentence_id"]) for h in hits}
     return any(g <= got for g in gold_sets(row))
-
-
-def demo(retriever, k=3):
-    for claim, hits in zip(DEMO_CLAIMS, retriever.search(DEMO_CLAIMS, k=k)):
-        print(f"\n[{retriever.name}] {claim}")
-        for h in hits:
-            print(f"  {h[retriever.threshold_key]:8.3f}  {h['rendered'][:100]}")
 
 
 if __name__ == "__main__":

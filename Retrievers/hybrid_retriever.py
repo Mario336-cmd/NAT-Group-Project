@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from common import load_corpus, demo
+from common import load_corpus
 from bm25_retriever import BM25Retriever
 from embedding_retriever import EmbeddingRetriever
 
@@ -12,6 +12,7 @@ POOL = 50
 class HybridRetriever:
     name = "Hybrid"
     threshold_key = "emb_score"  # rank points can't measure relevance, cosine can
+    threshold = None  # minimum threshold_key for enough evidence. set from the validation sweep
 
     def __init__(self, passages=None, emb=None, bm25=None):
         self.passages = passages or load_corpus()
@@ -32,7 +33,3 @@ class HybridRetriever:
             out.append([{**self.passages[pid], "score": points[pid],
                          "emb_score": self.emb.cosine(vec, pid)} for pid in best])
         return out
-
-
-if __name__ == "__main__":
-    demo(HybridRetriever())
