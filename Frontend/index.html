@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="TrueCheck's local conversational claim verification interface.">
+  <title>TrueCheck — Claim verification</title>
+  <link rel="icon" href="/favicon.ico" sizes="16x16 24x24 32x32 48x48 64x64 128x128 256x256">
+  <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" sizes="any">
+  <link rel="apple-touch-icon" href="/assets/logo.png">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/history.js" defer></script>
+  <script src="/export.js" defer></script>
+  <script src="/settings.js" defer></script>
+  <script src="/speech.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#claimInput">Skip to claim input</a>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar" aria-label="TrueCheck sidebar">
+      <div class="sidebar-inner">
+        <div class="sidebar-header">
+      <button type="button" class="brand" data-home aria-label="TrueCheck home">
+        <img class="logo" src="/assets/logo.svg" width="30" height="30" alt="">
+        <span class="brand-name">TrueCheck</span>
+      </button>
+        <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Collapse sidebar" title="Collapse sidebar" aria-controls="sidebar" aria-expanded="true"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg></button>
+        </div>
+
+      <button type="button" class="new-chat" id="newChatBtn">
+        <svg class="ui-icon plus" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg> New verification
+      </button>
+
+      <nav class="side-nav" aria-label="Main navigation">
+        <button type="button" class="nav-item" data-view="history">
+          <span class="nav-icon" aria-hidden="true"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 11a9 9 0 1 1 2.7 7.3"/><path d="M3 4v7h7M12 7v5l3 2"/></svg></span> History
+        </button>
+      </nav>
+
+      <div class="sidebar-section">
+        <div class="section-label" id="chatsHeading">Chats</div>
+        <div id="chatList" aria-labelledby="chatsHeading"></div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <button type="button" class="nav-item" data-view="settings"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18.47 9.32 20.80 10.13 20.80 13.87 18.47 14.68 18.47 14.68 19.55 16.90 16.90 19.55 14.68 18.47 14.68 18.47 13.87 20.80 10.13 20.80 9.32 18.47 9.32 18.47 7.10 19.55 4.45 16.90 5.53 14.68 5.53 14.68 3.20 13.87 3.20 10.13 5.53 9.32 5.53 9.32 4.45 7.10 7.10 4.45 9.32 5.53 9.32 5.53 10.13 3.20 13.87 3.20 14.68 5.53 14.68 5.53 16.90 4.45 19.55 7.10 18.47 9.32Z"/><circle cx="12" cy="12" r="3"/></svg></span> Settings</button>
+        <button type="button" class="nav-item" data-view="about"><span class="nav-icon" aria-hidden="true"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg></span> About TrueCheck</button>
+      </div>
+      </div>
+    </aside>
+    <button type="button" class="sidebar-backdrop" id="sidebarBackdrop" aria-label="Close navigation" hidden></button>
+
+    <main class="main">
+      <header class="topbar">
+        <button type="button" class="sidebar-toggle" id="sidebarExpandBtn" hidden aria-label="Expand sidebar" title="Expand sidebar" aria-controls="sidebar" aria-expanded="false"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg></button>
+
+        <button type="button" class="mobile-menu" id="mobileMenu" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <button type="button" class="mobile-title" data-home aria-label="TrueCheck home"><img src="/assets/logo.svg" width="24" height="24" alt="">TrueCheck</button>
+      </header>
+
+      <section class="chat-view view active" id="chatView" aria-label="Claim workspace">
+        <div class="chat-scroll" id="chatScroll">
+          <div class="welcome" id="welcome">
+            <img class="hero-logo" src="/assets/logo.svg" width="58" height="58" alt="">
+            <h1>What would you like to verify?</h1>
+            <p>Enter a factual claim to find relevant passages, see a model prediction and explore its explanation.</p>
+
+            <div class="suggestions" aria-label="Example claims">
+              <button type="button" data-prompt="Windhoek is the capital of Namibia.">
+                <strong>Windhoek</strong><span>“Windhoek is the capital of Namibia.”</span>
+              </button>
+              <button type="button" data-prompt="Mars is the sixth planet from the Sun.">
+                <strong>Space</strong><span>“Mars is the sixth planet from the Sun.”</span>
+              </button>
+              <button type="button" data-prompt="Namibia shares a border with South Africa.">
+                <strong>SADC</strong><span>“Namibia shares a border with South Africa.”</span>
+              </button>
+              <button type="button" data-prompt="The chemical symbol for copper is Co.">
+                <strong>Science</strong><span>“The chemical symbol for copper is Co.”</span>
+              </button>
+            </div>
+          </div>
+          <div id="messages" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation"></div>
+        </div>
+
+        <div class="composer-wrap">
+          <div class="server-state" id="serverState" role="status" aria-live="polite" data-state="loading">
+            <div class="server-state-heading">
+              <span id="serverStatus">Loading fact checker</span>
+              <button type="button" id="retryBtn" hidden>Retry</button>
+            </div>
+            <div class="model-progress-list" id="modelProgress">
+              <div class="model-progress-row" id="retrieverProgress" data-state="waiting">
+                <div class="model-progress-heading"><span class="model-progress-label" id="retrieverLabel">Retriever</span><span class="model-progress-status" id="retrieverStatus">Loading · 0%</span></div>
+                <div class="model-progress-track" role="progressbar" aria-labelledby="retrieverLabel" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Loading · 0%"><span></span></div>
+              </div>
+              <div class="model-progress-row" id="classifierProgress" data-state="waiting">
+                <div class="model-progress-heading"><span class="model-progress-label" id="classifierLabel">Classifier</span><span class="model-progress-status" id="classifierStatus">Loading · 0%</span></div>
+                <div class="model-progress-track" role="progressbar" aria-labelledby="classifierLabel" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="Loading · 0%"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="retrieval-options">
+            <label for="topKSelect">Evidence passages to use</label>
+            <select id="topKSelect" name="top_k" form="claimForm" aria-describedby="topKHelp" disabled>
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+              <option value="7">7</option>
+              <option value="8">8</option>
+              <option value="9">9</option>
+              <option value="10">10</option>
+            </select>
+            <span class="sr-only" id="topKHelp">Maximum number of passages to retrieve for this claim.</span>
+          </div>
+          <form class="composer" id="claimForm">
+            <div class="composer-tools">
+              <button type="button" id="attachBtn" disabled title="Upload an image or PDF for text extraction" aria-label="Upload an image or PDF for text extraction"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg></button>
+              <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,application/pdf,.png,.jpg,.jpeg,.webp,.pdf" hidden>
+            </div>
+            <label class="sr-only" for="claimInput">Claim to check</label>
+            <textarea id="claimInput" rows="1" placeholder="Enter a claim to fact check" aria-describedby="serverStatus inputFeedback" disabled></textarea>
+            <div class="composer-actions">
+              <button type="button" id="micBtn" class="tool-btn" disabled title="Record a claim" aria-label="Record a claim"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M9 22h6"/></svg></button>
+              <button type="submit" id="sendBtn" class="send-btn" title="Send claim" aria-label="Send claim" disabled><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></button>
+            </div>
+          </form>
+          <div class="voice-panel" id="voicePanel" hidden>
+            <div class="voice-status-row"><strong id="voiceStatus" role="status"></strong><span id="voiceTimer" aria-label="Recording duration"></span></div>
+            <canvas id="voiceWaveform" width="640" height="40" aria-label="Microphone waveform"></canvas>
+            <div class="voice-actions"><button type="button" id="stopRecordingBtn">Stop recording</button><button type="button" id="cancelRecordingBtn">Cancel</button></div>
+          </div>
+          <div class="input-feedback" id="inputFeedback" role="status"></div>
+        </div>
+      </section>
+
+      <section class="view content-view" id="historyView" aria-labelledby="historyHeading" hidden>
+        <div class="content-inner">
+          <div class="history-header">
+            <div><h1 id="historyHeading" tabindex="-1">History</h1><p class="muted" id="historyCount">No saved checks</p></div>
+            <button type="button" class="history-clear" id="clearHistoryBtn" data-history-action disabled>Clear history</button>
+          </div>
+          <p class="history-storage-note" id="historyStorageNotice" role="status"></p>
+          <p class="action-feedback" id="historyFeedback" role="status"></p>
+          <div class="empty-state" id="historyEmpty">No saved checks yet. Verify a claim to start your history.</div>
+          <div class="history-list" id="historyList" aria-label="Saved checks" hidden></div>
+        </div>
+      </section>
+
+      <section class="view content-view" id="settingsView" aria-labelledby="settingsHeading" hidden>
+        <div class="content-inner">
+          <div class="history-header">
+            <div><h1 id="settingsHeading" tabindex="-1">API settings</h1></div>
+            <button type="button" class="history-clear" id="clearAllConfiguration">Clear all API settings</button>
+          </div>
+          <p class="action-feedback" id="configurationFeedback" role="status"></p>
+          <div class="configuration-grid" id="configurationPanels"></div>
+          <section class="configuration-card voice-settings" aria-labelledby="readAloudHeading">
+            <h2 id="readAloudHeading">Read aloud</h2>
+            <p class="configuration-model-help">Choose a voice to read responses aloud.</p>
+            <label class="configuration-field" for="voiceSelect">Voice</label>
+            <select id="voiceSelect" aria-describedby="voiceSelectionStatus"><option value="">Default English voice</option></select>
+            <div class="configuration-actions"><button type="button" id="previewVoiceBtn" class="configuration-primary">Preview voice</button><button type="button" id="stopPreviewBtn" class="configuration-secondary" disabled>Stop preview</button></div>
+            <p class="configuration-status" id="voiceSelectionStatus" role="status"></p>
+          </section>
+        </div>
+      </section>
+
+      <section class="view content-view" id="aboutView" aria-labelledby="aboutHeading" hidden>
+        <div class="content-inner narrow">
+          <h1 id="aboutHeading" tabindex="-1">About TrueCheck</h1>
+          <div class="preview-notice">
+            <strong>How the application works</strong>
+            <p>TrueCheck helps you assess factual claims using Wikipedia evidence, a BERT prediction and an explanation with sources.</p>
+            <p>Type a claim, upload an image or PDF, or use voice input. Review your results, listen to explanations and download PDF or Word reports.</p>
+            <p>TrueCheck searches a saved Wikipedia collection. Review the evidence carefully, as model predictions can be wrong.</p>
+          </div>
+          <div class="about-steps" aria-label="Verification workflow">
+            <div><b>01</b><strong>Submit</strong><span>Enter the claim you want to check.</span></div>
+            <div><b>02</b><strong>Retrieve</strong><span>Find relevant evidence passages.</span></div>
+            <div><b>03</b><strong>Verify</strong><span>Compare the claim with the evidence using BERT.</span></div>
+            <div><b>04</b><strong>Explain</strong><span>Present the result with a grounded explanation and source links.</span></div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="deleteHistoryDialog" aria-labelledby="deleteHistoryHeading" aria-describedby="deleteHistoryDescription">
+    <div class="help-head"><h2 id="deleteHistoryHeading">Delete saved check?</h2></div>
+    <p id="deleteHistoryDescription"></p>
+    <div class="extraction-actions">
+      <button type="button" id="cancelDeleteHistoryBtn" autofocus>Cancel</button>
+      <button type="button" id="confirmDeleteHistoryBtn" class="danger-action">Delete</button>
+    </div>
+  </dialog>
+  <dialog id="extractionDialog" class="extraction-dialog" aria-labelledby="extractionHeading" aria-describedby="extractionDisclosure">
+    <div class="help-head"><h2 id="extractionHeading">Review extracted text</h2><button type="button" class="icon-button" id="closeExtractionBtn" aria-label="Cancel and clear upload review"><svg class="ui-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <p class="upload-filename" id="extractionFilename"></p>
+    <p id="extractionDisclosure">Text extraction with your configured provider.</p>
+    <p class="loading-message" id="extractionProgress" role="status" hidden>Extracting text…</p>
+    <div id="extractionReview" hidden>
+      <label for="extractionText">Claim text</label>
+      <textarea id="extractionText" rows="8" maxlength="20000" aria-describedby="extractionTextHelp extractionFeedback"></textarea>
+      <p id="extractionTextHelp">Select a claim or edit the text, then add it to your draft. Maximum 4,000 characters.</p>
+    </div>
+    <p class="extraction-feedback" id="extractionFeedback" role="status"></p>
+    <div class="extraction-actions">
+      <button type="button" id="cancelExtractionBtn">Cancel</button>
+      <button type="button" id="useClaimBtn" class="primary-action" title="Copies selected text, or all text when nothing is selected, into your draft" disabled>Use as claim</button>
+    </div>
+  </dialog>
+  <noscript><div class="noscript-notice">Enable JavaScript to use the TrueCheck interface.</div></noscript>
+</body>
+</html>

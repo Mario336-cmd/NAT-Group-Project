@@ -1,4 +1,5 @@
 Dataset
 Models/
+.venv/
 __pycache__/
 *.py[cod]

@@ -14,8 +14,13 @@ CORPUS_DIR = ROOT / "Dataset/Index"
 WIKI_DB = ROOT / "Dataset/Cache/fever_wiki_all_sets.sqlite3"
 PASSAGES = CORPUS_DIR / "passages.jsonl"
 
+DEMO_CLAIMS = [
+    "Nikolaj Coster-Waldau worked with the Fox Broadcasting Company.",
+    "Purple elephants run the Danish parliament.",
+]
+
 def pick_distractors(count, exclude, seed=42):
-    """Random Wikipedia pages no claim cites, so retrievers must skip irrelevant text."""
+    # Random Wikipedia pages no claim cites, so retrievers must skip irrelevant text.
     with closing(sqlite3.connect(WIKI_DB.resolve().as_uri() + "?mode=ro", uri=True)) as con:
         last = con.execute("SELECT MAX(rowid) FROM pages").fetchone()[0]
         chosen = set()
@@ -30,7 +35,7 @@ def pick_distractors(count, exclude, seed=42):
 
 
 def build_corpus(max_pages=None, distractors=10000):
-    """Collect every Wikipedia page your claims use, add random distractor pages, save all their sentences."""
+    # Collect every Wikipedia page your claims use, add random distractor pages, save all their sentences.
     from prepare_dataset import read_split_file, SPLITS
     from prepare_evidence import EvidenceStore, clean_text
 
@@ -72,14 +77,11 @@ def load_corpus():
         return [json.loads(line) for line in f]
 
 
-def gold_sets(row):
-    return [{(s["page"], s["sentence_id"]) for s in g["sources"]}
-            for g in json.loads(row["evidence_sources"])]
-
-
-def found_complete(row, hits):
-    got = {(h["page"], h["sentence_id"]) for h in hits}
-    return any(g <= got for g in gold_sets(row))
+def demo(retriever, k=3):
+    for claim, hits in zip(DEMO_CLAIMS, retriever.search(DEMO_CLAIMS, k=k)):
+        print(f"\n[{retriever.name}] {claim}")
+        for h in hits:
+            print(f"  {h[retriever.threshold_key]:8.3f}  {h['rendered'][:100]}")
 
 
 if __name__ == "__main__":

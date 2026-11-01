@@ -12,7 +12,6 @@ POOL = 50
 class HybridRetriever:
     name = "Hybrid"
     threshold_key = "emb_score"  # rank points can't measure relevance, cosine can
-    threshold = None  # minimum threshold_key for enough evidence. set from the validation sweep
 
     def __init__(self, passages=None, emb=None, bm25=None):
         self.passages = passages or load_corpus()
@@ -20,9 +19,9 @@ class HybridRetriever:
         self.bm25 = bm25 or BM25Retriever(self.passages)
 
     def search(self, claims, k=5):
-        from_emb = self.emb.search(claims, POOL)
-        from_bm25 = self.bm25.search(claims, POOL)
         vectors = self.emb.encode(claims)
+        from_emb = self.emb.search_vectors(vectors, POOL)
+        from_bm25 = self.bm25.search(claims, POOL)
         out = []
         for vec, a, b in zip(vectors, from_emb, from_bm25):
             points = {}
