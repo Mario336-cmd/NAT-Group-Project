@@ -17,6 +17,58 @@ from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator,
 ROOT = Path(__file__).resolve().parents[1]
 CONFIDENCE_NOTE = "Confidence is a model score, not a guarantee of accuracy."
 FONT_LOCK = Lock()
+REPORT_TEXT = {
+    "en": {
+        "title": "Claim verification report", "completed": "Completed", "claim": "Claim",
+        "english_claim": "English claim translation", "screening": "Input screening",
+        "screening_unavailable": "Screening unavailable", "invalid_input": "Check your input",
+        "out_of_scope": "Enter a factual claim", "model_result": "Model result",
+        "SUPPORTS": "Supports", "REFUTES": "Refutes", "confidence": "Model confidence",
+        "legacy": "Saved before input screening was added.",
+        "no_evidence": "No passages were found for this claim.", "explanation": "What the evidence says",
+        "empty_explanation": "No explanation was returned.", "sources": "Sources",
+        "explanation_unavailable": "Explanation unavailable.", "retry": "Please try again later.",
+        "reviewed": "Passages reviewed", "evidence": "Evidence used", "passage": "passage",
+        "passages": "passages", "original": "Original English evidence", "translation": "Translation",
+        "confidence_note": CONFIDENCE_NOTE, "translation_notice": "",
+        "prediction_caption": "Prediction with retrieved evidence", "screening_caption": "Input screening result",
+        "no_evidence_caption": "No evidence result", "page": "Page",
+    },
+    "pt": {
+        "title": "Relatório de verificação de afirmações", "completed": "Concluído em", "claim": "Afirmação original",
+        "english_claim": "Tradução da afirmação para inglês", "screening": "Análise da entrada",
+        "screening_unavailable": "Análise indisponível", "invalid_input": "Verifique a sua entrada",
+        "out_of_scope": "Introduza uma afirmação factual", "model_result": "Resultado do modelo",
+        "SUPPORTS": "Apoia", "REFUTES": "Refuta", "confidence": "Confiança do modelo",
+        "legacy": "Guardado antes da introdução da análise da entrada.",
+        "no_evidence": "Não foram encontradas passagens para esta afirmação.", "explanation": "O que dizem as evidências",
+        "empty_explanation": "Não foi devolvida uma explicação.", "sources": "Fontes",
+        "explanation_unavailable": "Explicação indisponível.", "retry": "Tente novamente mais tarde.",
+        "reviewed": "Passagens analisadas", "evidence": "Evidências utilizadas", "passage": "passagem",
+        "passages": "passagens", "original": "Evidência original em inglês", "translation": "Tradução para português",
+        "confidence_note": "A confiança é uma pontuação do modelo, não uma garantia de exatidão.",
+        "translation_notice": "Apoio multilingue baseado em tradução. A pesquisa e o BERT utilizam a afirmação em inglês. As traduções podem conter erros.",
+        "prediction_caption": "Previsão com evidências recuperadas", "screening_caption": "Resultado da análise da entrada",
+        "no_evidence_caption": "Resultado sem evidências", "page": "Página",
+    },
+    "af": {
+        "title": "Verslag oor beweringsverifikasie", "completed": "Voltooi op", "claim": "Oorspronklike bewering",
+        "english_claim": "Engelse vertaling van die bewering", "screening": "Invoerkontrole",
+        "screening_unavailable": "Invoerkontrole nie beskikbaar nie", "invalid_input": "Gaan jou invoer na",
+        "out_of_scope": "Voer 'n feitelike bewering in", "model_result": "Modelresultaat",
+        "SUPPORTS": "Ondersteun", "REFUTES": "Weerlê", "confidence": "Modelvertroue",
+        "legacy": "Gestoor voordat invoerkontrole bygevoeg is.",
+        "no_evidence": "Geen teksgedeeltes is vir hierdie bewering gevind nie.", "explanation": "Wat die bewyse sê",
+        "empty_explanation": "Geen verduideliking is teruggestuur nie.", "sources": "Bronne",
+        "explanation_unavailable": "Verduideliking nie beskikbaar nie.", "retry": "Probeer asseblief later weer.",
+        "reviewed": "Hersiene teksgedeeltes", "evidence": "Gebruikte bewyse", "passage": "teksgedeelte",
+        "passages": "teksgedeeltes", "original": "Oorspronklike Engelse bewyse", "translation": "Afrikaanse vertaling",
+        "confidence_note": "Vertroue is 'n modeltelling, nie 'n waarborg van akkuraatheid nie.",
+        "translation_notice": "Meertalige ondersteuning gebruik vertaling. Soektogte en BERT gebruik die Engelse bewering. Vertalings kan foute bevat.",
+        "prediction_caption": "Voorspelling met opgespoorde bewyse", "screening_caption": "Resultaat van invoerkontrole",
+        "no_evidence_caption": "Resultaat sonder bewyse", "page": "Bladsy",
+    },
+}
 
 
 class ReportModel(BaseModel):
@@ -51,10 +103,20 @@ class Passage(ReportModel):
     sentence_id: int | None = None
     score: FiniteFloat | None = None
     emb_score: FiniteFloat | None = None
+    translation: str | None = Field(default=None, min_length=1, max_length=200000)
+
+    @field_validator("translation")
+    @classmethod
+    def nonempty_translation(cls, value):
+        if value is not None and not value.strip():
+            raise ValueError("An evidence translation cannot be blank")
+        return value
 
 
 class Result(ReportModel):
     claim: str = Field(min_length=1, max_length=4000)
+    language: Literal["en", "pt", "af"] = "en"
+    english_claim: str | None = Field(default=None, min_length=1, max_length=4000)
     status: Literal["prediction", "no_evidence", "rejected", "screening_unavailable"]
     top_k: int = Field(ge=1, le=10)
     prediction: Prediction | None
@@ -73,6 +135,16 @@ class Result(ReportModel):
             raise ValueError("Inconsistent report evidence")
         if self.status == "prediction" and (self.prediction is None or not ids):
             raise ValueError("Incomplete report prediction")
+        if self.english_claim is not None and not self.english_claim.strip():
+            raise ValueError("An English claim cannot be blank")
+        if self.language == "en" and self.english_claim is not None and self.english_claim != self.claim:
+            raise ValueError("English claims must remain unchanged")
+        if self.language != "en" and self.status == "prediction":
+            if (not self.english_claim or self.screening is None or self.screening.status != "accepted"
+                    or self.explanation.status != "ready" or any(not item.translation for item in self.evidence)):
+                raise ValueError("Incomplete translated prediction")
+        if self.language == "en" and any(item.translation is not None for item in self.evidence):
+            raise ValueError("English results must not be labelled as translated evidence")
         if self.status == "no_evidence" and (self.prediction is not None or ids):
             raise ValueError("Inconsistent no-evidence result")
         if self.status == "prediction" and self.screening is not None:
@@ -119,8 +191,10 @@ def safe_source_url(value):
 
 def report_blocks(record):
     result = record.result
+    labels = REPORT_TEXT[result.language]
     completed = datetime.fromisoformat(record.saved_at.replace("Z", "+00:00"))
-    completed = completed.astimezone(timezone(timedelta(hours=2))).strftime("%d %B %Y, %H:%M CAT")
+    date_format = "%d %B %Y, %H:%M CAT" if result.language == "en" else "%d/%m/%Y, %H:%M CAT"
+    completed = completed.astimezone(timezone(timedelta(hours=2))).strftime(date_format)
     source_numbers = {item.id: index for index, item in enumerate(result.evidence, 1)}
 
     def citation_label(source_id):
@@ -134,41 +208,46 @@ def report_blocks(record):
             return "[" + ", ".join(str(source_numbers[source_id]) for source_id in ids) + "]"
         return re.sub(r"\[(E[1-9]\d*(?:,\s*E[1-9]\d*)*)\]", replace_group, text)
 
-    blocks = [("title", "Claim verification report"), ("meta", "Completed " + completed),
-              ("heading", "Claim"), ("body", result.claim)]
+    blocks = [("title", labels["title"]), ("meta", labels["completed"] + " " + completed),
+              ("heading", labels["claim"]), ("body", result.claim)]
+    if result.language != "en":
+        if result.english_claim:
+            blocks.extend([("heading", labels["english_claim"]), ("english", result.english_claim)])
+        blocks.append(("meta", labels["translation_notice"]))
     blocked = result.status in ("rejected", "screening_unavailable")
     if blocked:
-        label = "Screening unavailable" if result.status == "screening_unavailable" else (
-            "Check your input" if result.screening.status == "invalid_input" else "Enter a factual claim"
-        )
-        blocks.extend([("heading", "Input screening"), ("body", label), ("body", result.screening.reason)])
+        key = "screening_unavailable" if result.status == "screening_unavailable" else result.screening.status
+        blocks.extend([("heading", labels["screening"]), ("body", labels[key]), ("body", result.screening.reason)])
     elif result.prediction is not None:
-        label = "Supports" if result.prediction.label == "SUPPORTS" else "Refutes"
-        blocks.extend([("heading", "Model result"), ("body", label),
-                       ("body", f"Model confidence: {result.prediction.confidence:.1%}")])
+        blocks.extend([("heading", labels["model_result"]), ("body", labels[result.prediction.label]),
+                       ("body", labels["confidence"] + f": {result.prediction.confidence:.1%}")])
         if result.screening is None:
-            blocks.append(("meta", "Saved before input screening was added."))
+            blocks.append(("meta", labels["legacy"]))
     else:
-        blocks.extend([("heading", "Model result"), ("body", "No passages were found for this claim.")])
+        blocks.extend([("heading", labels["model_result"]), ("body", labels["no_evidence"])])
     if not blocked and result.status != "no_evidence":
-        blocks.append(("heading", "What the evidence says"))
+        blocks.append(("heading", labels["explanation"]))
         if result.explanation.status == "ready":
-            summary = readable_summary(result.explanation.summary) or "No explanation was returned."
+            summary = readable_summary(result.explanation.summary) or labels["empty_explanation"]
             blocks.extend(("body", paragraph.strip()) for paragraph in re.split(r"\n\s*\n", summary) if paragraph.strip())
             if result.explanation.citations:
-                blocks.append(("meta", "Sources: " + ", ".join(citation_label(item) for item in result.explanation.citations)))
+                blocks.append(("meta", labels["sources"] + ": " + ", ".join(citation_label(item) for item in result.explanation.citations)))
         else:
-            blocks.append(("body", "Explanation unavailable. " + (result.explanation.reason or "Please try again later.")))
+            blocks.append(("body", labels["explanation_unavailable"] + " " + (result.explanation.reason or labels["retry"])))
     if result.evidence:
         count = len(result.evidence)
-        heading = "Passages reviewed" if blocked else "Evidence used"
-        heading += " · " + str(count) + (" passage" if count == 1 else " passages")
+        heading = labels["reviewed"] if blocked else labels["evidence"]
+        heading += " · " + str(count) + " " + labels["passage" if count == 1 else "passages"]
         blocks.append(("heading", heading))
         for item in result.evidence:
-            blocks.extend([("source", citation_label(item.id) + " " + item.page.replace("_", " ")),
-                           ("body", item.text), ("url", item.url)])
+            blocks.append(("source", citation_label(item.id) + " " + item.page.replace("_", " ")))
+            if result.language != "en":
+                blocks.append(("meta", labels["original"]))
+            blocks.extend([("english" if result.language != "en" else "body", item.text), ("url", item.url)])
+            if item.translation and result.language != "en":
+                blocks.extend([("meta", labels["translation"]), ("body", item.translation)])
     if result.prediction is not None:
-        blocks.append(("meta", CONFIDENCE_NOTE))
+        blocks.append(("meta", labels["confidence_note"]))
     return [(kind, clean_text(text)) for kind, text in blocks]
 
 
@@ -203,9 +282,10 @@ def pdf_report(record):
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import SimpleDocTemplate, Paragraph
     normal, bold = pdf_fonts()
+    labels = REPORT_TEXT[record.result.language]
     stream = BytesIO()
     document = SimpleDocTemplate(stream, pagesize=letter, rightMargin=54, leftMargin=54,
-                                 topMargin=66, bottomMargin=54, title="TrueCheck claim verification report", author="TrueCheck")
+                                 topMargin=66, bottomMargin=54, title="TrueCheck - " + labels["title"], author="TrueCheck")
     styles = {
         "title": ParagraphStyle("title", fontName=bold, fontSize=22, leading=28, textColor=colors.black, spaceAfter=14, keepWithNext=True),
         "heading": ParagraphStyle("heading", fontName=bold, fontSize=13, leading=18, textColor=colors.black, spaceBefore=15, spaceAfter=7, keepWithNext=True),
@@ -214,6 +294,7 @@ def pdf_report(record):
         "meta": ParagraphStyle("meta", fontName=normal, fontSize=10, leading=15, textColor=colors.HexColor("#596579"), spaceAfter=5, splitLongWords=True),
         "url": ParagraphStyle("url", fontName=normal, fontSize=10, leading=15, textColor=colors.HexColor("#1d4ed8"), spaceAfter=7, splitLongWords=True),
     }
+    styles["english"] = styles["body"]
 
     def markup(text):
         value = escape(text).replace("\n", "<br/>")
@@ -236,11 +317,12 @@ def pdf_report(record):
         canvas.drawString(81, 750, "TrueCheck")
         canvas.setFont(normal, 10)
         canvas.setFillColor(colors.HexColor("#596579"))
-        caption = "Prediction with retrieved evidence" if record.result.prediction is not None else (
-            "Input screening result" if record.result.status in ("rejected", "screening_unavailable") else "No evidence result"
+        key = "prediction_caption" if record.result.prediction is not None else (
+            "screening_caption" if record.result.status in ("rejected", "screening_unavailable") else "no_evidence_caption"
         )
+        caption = labels[key]
         canvas.drawString(54, 32, caption)
-        canvas.drawRightString(558, 32, f"Page {doc.page}")
+        canvas.drawRightString(558, 32, labels["page"] + f" {doc.page}")
         canvas.restoreState()
 
     document.build(flow, onFirstPage=furniture, onLaterPages=furniture)
@@ -254,6 +336,8 @@ def word_report(record):
     from docx.oxml.ns import qn
     from docx.shared import Inches, Pt, RGBColor
     document = Document()
+    labels = REPORT_TEXT[record.result.language]
+    language_tag = {"en": "en-GB", "pt": "pt-PT", "af": "af-ZA"}[record.result.language]
     section = document.sections[0]
     section.page_width, section.page_height = Inches(8.5), Inches(11)
     section.top_margin, section.bottom_margin = Inches(.85), Inches(.75)
@@ -277,9 +361,13 @@ def word_report(record):
         if borders is not None:
             borders.getparent().remove(borders)
     for style in (normal, document.styles["Title"], document.styles["Heading 1"], document.styles["Heading 2"]):
-        fonts = style.element.get_or_add_rPr().get_or_add_rFonts()
+        properties = style.element.get_or_add_rPr()
+        fonts = properties.get_or_add_rFonts()
         for attribute in ("asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme"):
             fonts.attrib.pop(qn("w:" + attribute), None)
+        language = OxmlElement("w:lang")
+        language.set(qn("w:val"), language_tag)
+        properties.append(language)
     header = section.header.paragraphs[0]
     logo = ROOT / "Frontend/assets/logo.png"
     if logo.is_file():
@@ -304,7 +392,11 @@ def word_report(record):
             link.append(run)
             paragraph._p.append(link)
         else:
-            paragraph.add_run(text)
+            run = paragraph.add_run(text)
+            if kind == "english":
+                language = OxmlElement("w:lang")
+                language.set(qn("w:val"), "en-GB")
+                run._r.get_or_add_rPr().append(language)
         if kind in ("meta", "url"):
             paragraph.paragraph_format.space_after = Pt(5)
             for run in paragraph.runs:
@@ -312,12 +404,13 @@ def word_report(record):
                 run.font.color.rgb = RGBColor.from_string("596579" if kind == "meta" else "1D4ED8")
     footer = section.footer.paragraphs[0]
     footer.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    footer.add_run("TrueCheck | Page ")
+    footer.add_run("TrueCheck | " + labels["page"] + " ")
     field = OxmlElement("w:fldSimple")
     field.set(qn("w:instr"), "PAGE")
     footer._p.append(field)
     document.core_properties.author = "TrueCheck"
-    document.core_properties.title = "TrueCheck claim verification report"
+    document.core_properties.title = "TrueCheck - " + labels["title"]
+    document.core_properties.language = language_tag
     document.core_properties.comments = "Generated locally from the selected verification result."
     stream = BytesIO()
     document.save(stream)

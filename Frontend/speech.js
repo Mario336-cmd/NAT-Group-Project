@@ -30,15 +30,17 @@
     return JSON.stringify([voice.voiceURI, voice.name, voice.lang]);
   }
 
-  function readVoice() {
-    return voices.find(voice => voiceKey(voice) === selectedVoice) ||
-      voices.find(voice => /^en(?:-|$)/i.test(voice.lang) && voice.default) ||
-      voices.find(voice => /^en(?:-|$)/i.test(voice.lang)) || voices.find(voice => voice.default) || voices[0];
+  function readVoice(language = null) {
+    const preferred = voices.find(voice => voiceKey(voice) === selectedVoice);
+    const matches = voice => voice.lang.toLowerCase().split("-")[0] === (language || "en");
+    if (preferred && (!language || matches(preferred))) return preferred;
+    return voices.find(voice => matches(voice) && voice.default) || voices.find(matches) ||
+      (!language ? voices.find(voice => voice.default) || voices[0] : undefined);
   }
 
   function refreshVoices() {
     voices = canSpeak ? synth.getVoices() : [];
-    voiceSelect.replaceChildren(new Option("Default English voice", ""));
+    voiceSelect.replaceChildren(new Option("Automatic voice for result language", ""));
     voices.forEach(voice => voiceSelect.add(new Option(voice.name + " · " + voice.lang, voiceKey(voice))));
     const savedAvailable = voices.some(voice => voiceKey(voice) === selectedVoice);
     voiceSelect.value = savedAvailable ? selectedVoice : "";
@@ -46,7 +48,7 @@
     preview.disabled = !canSpeak || Boolean(recording);
     voiceFeedback.textContent = !canSpeak ? "Read aloud is not supported by this browser." :
       selectedVoice && !savedAvailable ? "The saved voice is unavailable. The default voice will be used." :
-      "Voice selection applies to the next playback.";
+      "Results use a voice matching their language. Your selected voice is used when its language matches.";
   }
 
   function stopSpeaking() {
@@ -59,7 +61,7 @@
     stopPreview.disabled = true;
   }
 
-  function speak(text, onState, onError) {
+  function speak(text, onState, onError, language = null) {
     stopSpeaking();
     if (!canSpeak || recording || !text.trim()) return;
     const current = { chunks: text.match(/[\s\S]{1,240}(?:\s|$)|[\s\S]{1,240}/g) || [], index: 0, onState };
@@ -69,9 +71,9 @@
       if (current.index === current.chunks.length) { stopSpeaking(); return; }
       const utterance = new SpeechSynthesisUtterance(current.chunks[current.index++].trim());
       current.utterance = utterance;
-      const voice = readVoice();
+      const voice = readVoice(language);
       if (voice) { utterance.voice = voice; utterance.lang = voice.lang; }
-      else utterance.lang = "en";
+      else utterance.lang = language || "en";
       utterance.onstart = () => { if (speaker === current) onState("playing"); };
       utterance.onpause = () => { if (speaker === current) onState("paused"); };
       utterance.onresume = () => { if (speaker === current) onState("playing"); };
@@ -88,7 +90,8 @@
     next();
   }
 
-  function bindRead(button, text, feedback) {
+  function bindRead(button, text, feedback, language = "en") {
+    language = ["en", "pt", "af"].includes(language) ? language : "en";
     let state = "idle";
     const stopButton = document.createElement("button");
     stopButton.type = "button";
@@ -110,7 +113,7 @@
       feedback.textContent = "";
       if (state === "playing") { synth.pause(); setState("paused"); }
       else if (state === "paused") { synth.resume(); setState("playing"); }
-      else speak(text, setState, message => { feedback.textContent = message; });
+      else speak(text, setState, message => { feedback.textContent = message; }, language);
     });
     stopButton.addEventListener("click", stopSpeaking);
   }

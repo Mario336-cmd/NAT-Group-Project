@@ -4,15 +4,11 @@ from threading import Lock
 from time import perf_counter
 import re
 
-from .llm import Explainer, SCREENING_MESSAGES
+from .llm import Explainer
+from .languages import LANGUAGE_NAMES, message
+from .bert_model import ClaimInputError
 from .settings import Settings
 
-
-NOTICE = (
-    "BERT prediction based on retrieved Wikipedia passages. "
-    "Model confidence is not a probability that a claim is true. "
-    "Evidence sufficiency has not yet been calibrated for this application."
-)
 
 SETUP_STEPS = {
     "retriever": ("assets", "dependencies", "corpus", "embeddings", "bm25", "validation", "warmup"),
@@ -146,60 +142,101 @@ class VerificationService:
         if not self._lock.acquire(blocking=False):
             raise PipelineBusyError("Another claim is still being processed. Please wait and retry.")
         start = perf_counter()
-        try:
-            compact = "".join(claim.split())
-            # Reject only unambiguous noise locally. Semantic screening uses the LLM.
-            if not any(char.isalnum() for char in claim) or re.fullmatch(r"(.)\1{7,}", compact, flags=re.DOTALL):
-                reason = SCREENING_MESSAGES["invalid_input"]
-                return {
-                    "claim": claim, "top_k": limit, "status": "rejected", "prediction": None, "evidence": [],
-                    "screening": {"status": "invalid_input", "reason": reason},
-                    "explanation": {"status": "unavailable", "summary": "", "citations": [], "reason": reason},
-                    "notice": "",
-                    "timings": {"retrieval_ms": 0.0, "classification_ms": 0.0, "explanation_ms": 0.0,
-                                "total_ms": round((perf_counter() - start) * 1000, 2)},
-                }
-            self.warmup()
-            tick = perf_counter()
-            hits = self.retriever.search(claim, k=limit)
-            evidence = [{**hit, "id": f"E{index}"} for index, hit in enumerate(hits, 1)]
-            retrieval_ms = (perf_counter() - tick) * 1000
-            if not evidence:
-                return {
-                    "claim": claim, "top_k": limit, "status": "no_evidence", "prediction": None, "evidence": [],
-                    "explanation": {"status": "unavailable", "summary": "", "citations": [],
-                                    "reason": "No passages were retrieved; no model prediction was generated."},
-                    "notice": "No evidence was retrieved. This claim could not be evaluated.",
-                    "timings": {"retrieval_ms": round(retrieval_ms, 2), "classification_ms": 0.0,
-                                "explanation_ms": 0.0, "total_ms": round((perf_counter() - start) * 1000, 2)},
-                }
-            tick = perf_counter()
-            # Match preparation: one rendered passage per newline; IDs are only for citations.
-            rendered = "\n".join(dict.fromkeys(hit["rendered"] for hit in evidence))
-            prediction = self.classifier.predict(claim, rendered)
-            classification_ms = (perf_counter() - tick) * 1000
-            tick = perf_counter()
-            explanation = self.explainer.explain(claim, evidence, prediction, configuration=configuration)
-            explanation_ms = (perf_counter() - tick) * 1000
-            screening = explanation.pop("screening", None)
-            # Missing screening metadata cannot silently authorize a new prediction.
-            if (not isinstance(screening, dict) or screening.get("status") not in ("accepted", "invalid_input", "out_of_scope", "unavailable")
-                    or (screening.get("status") == "accepted" and explanation.get("status") != "ready")):
-                screening = {"status": "unavailable", "reason": "Input screening could not be completed. Please retry."}
-            if screening["status"] != "accepted":
-                reason = SCREENING_MESSAGES.get(screening["status"], screening.get("reason") or "Input screening could not be completed. Please retry.")
-                screening = {"status": screening["status"], "reason": reason}
-                explanation = {"status": "unavailable", "summary": "", "citations": [], "reason": reason}
-                prediction = None
-            return {
-                "claim": claim, "top_k": limit,
-                "status": "prediction" if prediction is not None else "screening_unavailable" if screening["status"] == "unavailable" else "rejected",
-                "prediction": prediction, "screening": screening,
-                "evidence": evidence, "explanation": explanation, "notice": NOTICE if prediction is not None else "",
-                "timings": {"retrieval_ms": round(retrieval_ms, 2),
-                            "classification_ms": round(classification_ms, 2),
-                            "explanation_ms": round(explanation_ms, 2),
+        language = "en"
+        english_claim = None
+        evidence = []
+        timings = {"language_ms": 0.0, "retrieval_ms": 0.0, "classification_ms": 0.0, "explanation_ms": 0.0}
+
+        def result(status, prediction=None, screening=None, explanation=None, notice=""):
+            value = {
+                "claim": claim, "language": language, "top_k": limit, "status": status,
+                "prediction": prediction, "evidence": evidence,
+                "explanation": explanation or {"status": "unavailable", "summary": "", "citations": [], "reason": notice},
+                "notice": notice,
+                "timings": {**{key: round(value, 2) for key, value in timings.items()},
                             "total_ms": round((perf_counter() - start) * 1000, 2)},
             }
+            if english_claim is not None:
+                value["english_claim"] = english_claim
+            if screening is not None:
+                value["screening"] = screening
+            return value
+
+        def blocked(status, reason):
+            return result("screening_unavailable" if status == "unavailable" else "rejected",
+                          screening={"status": status, "reason": reason},
+                          explanation={"status": "unavailable", "summary": "", "citations": [], "reason": reason})
+
+        try:
+            compact = "".join(claim.split())
+            # Reject only unambiguous noise locally; do not guess its language.
+            if not any(char.isalnum() for char in claim) or re.fullmatch(r"(.)\1{7,}", compact, flags=re.DOTALL):
+                return blocked("invalid_input", message(language, "invalid_input"))
+            tick = perf_counter()
+            prepared = self.explainer.prepare(claim, configuration=configuration)
+            timings["language_ms"] = (perf_counter() - tick) * 1000
+            if not isinstance(prepared, dict):
+                return blocked("unavailable", message(language, "service_error"))
+            detected = prepared.get("language", "en")
+            if detected not in LANGUAGE_NAMES:
+                return blocked("unavailable", message(language, "service_error"))
+            language = detected
+            screening = prepared.get("screening")
+            if prepared.get("status") != "ready" or not isinstance(screening, dict):
+                return blocked("unavailable", prepared.get("reason") or message(language, "service_error"))
+            if screening.get("status") in ("invalid_input", "out_of_scope"):
+                return blocked(screening["status"], screening.get("reason") or message(language, screening["status"]))
+            if screening.get("status") != "accepted":
+                return blocked("unavailable", message(language, "service_error"))
+            translated = prepared.get("english_claim")
+            if not isinstance(translated, str) or not translated.strip() or (language == "en" and translated != claim):
+                return blocked("unavailable", message(language, "invalid_output"))
+            if len(translated) > self.settings.max_claim_characters:
+                return blocked("invalid_input", message(language, "encoding"))
+            english_claim = translated
+            self.warmup()
+            tick = perf_counter()
+            # Only the prepared English assertion reaches the existing local models.
+            hits = self.retriever.search(english_claim, k=limit)
+            evidence = [{**hit, "id": f"E{index}"} for index, hit in enumerate(hits, 1)]
+            timings["retrieval_ms"] = (perf_counter() - tick) * 1000
+            if not evidence:
+                return result("no_evidence", explanation={"status": "unavailable", "summary": "", "citations": [],
+                              "reason": message(language, "no_evidence_reason")}, notice=message(language, "no_evidence"))
+            tick = perf_counter()
+            rendered = "\n".join(dict.fromkeys(hit["rendered"] for hit in evidence))
+            try:
+                prediction = self.classifier.predict(english_claim, rendered)
+            except ClaimInputError:
+                return blocked("invalid_input", message(language, "encoding"))
+            timings["classification_ms"] = (perf_counter() - tick) * 1000
+            tick = perf_counter()
+            explanation = self.explainer.explain(claim, evidence, prediction, configuration=configuration,
+                                                language=language, english_claim=english_claim)
+            timings["explanation_ms"] = (perf_counter() - tick) * 1000
+            if not isinstance(explanation, dict):
+                return blocked("unavailable", message(language, "service_error"))
+            screening = explanation.pop("screening", None)
+            if (not isinstance(screening, dict) or screening.get("status") not in ("accepted", "invalid_input", "out_of_scope", "unavailable")
+                    or (screening.get("status") == "accepted" and explanation.get("status") != "ready")):
+                return blocked("unavailable", message(language, "service_error"))
+            if screening["status"] != "accepted":
+                reason = (message(language, screening["status"]) if screening["status"] != "unavailable" else
+                          explanation.get("reason") or screening.get("reason") or message(language, "service_error"))
+                return blocked(screening["status"], reason)
+            translations = explanation.pop("evidence_translations", {})
+            if language != "en":
+                if (not isinstance(translations, dict) or set(translations) != {hit["id"] for hit in evidence}
+                        or any(not isinstance(value, str) or not value.strip() or len(value) > 200000 for value in translations.values())):
+                    return blocked("unavailable", message(language, "invalid_output"))
+                evidence = [{**hit, "translation": translations[hit["id"]]} for hit in evidence]
+            explanation.pop("error_code", None)
+            return result("prediction", prediction=prediction, screening={"status": "accepted", "reason": None},
+                          explanation=explanation, notice=message(language, "notice"))
+        except PipelineUnavailableError:
+            return blocked("unavailable", message(language, "service_error"))
+        except Exception:
+            # Never expose local/provider internals or a partial prediction.
+            return blocked("unavailable", message(language, "service_error"))
         finally:
             self._lock.release()

@@ -1,5 +1,51 @@
 "use strict";
 
+const resultMessages = {
+  en: {
+    claim: "Claim", yourClaim: "Your claim", completed: "Completed", modelResult: "Model result",
+    supports: "Supports", refutes: "Refutes", confidence: "Model confidence", screening: "Input screening",
+    screeningUnavailable: "Screening unavailable", checkInput: "Check your input", enterClaim: "Enter a factual claim",
+    noPrediction: "No prediction", noResult: "No result", noEvidence: "No passages were found for this claim.",
+    explanation: "What the evidence says", sources: "Sources", evidence: "Evidence used", reviewed: "Passages reviewed",
+    passage: "passage", passages: "passages", englishClaim: "English translation used by the model",
+    originalEvidence: "Original English evidence", translatedEvidence: "Translated evidence",
+    translationNote: "The claim was translated into English for retrieval and classification. Translations may contain errors.",
+    confidenceNote: "Confidence is a model score, not a guarantee of accuracy.", legacy: "Saved before input screening was added.",
+    explanationUnavailable: "Explanation unavailable.", explanationError: "Explanation could not be generated.",
+    retry: "Please try again later.", predicts: "The model predicts", noSpokenEvidence: "No evidence was returned, so no prediction was made."
+  },
+  pt: {
+    claim: "Afirmação", yourClaim: "A sua afirmação", completed: "Concluído", modelResult: "Resultado do modelo",
+    supports: "Apoia", refutes: "Refuta", confidence: "Confiança do modelo", screening: "Validação da entrada",
+    screeningUnavailable: "Validação indisponível", checkInput: "Verifique a entrada", enterClaim: "Introduza uma afirmação factual",
+    noPrediction: "Sem previsão", noResult: "Sem resultado", noEvidence: "Não foram encontradas passagens para esta afirmação.",
+    explanation: "O que dizem as evidências", sources: "Fontes", evidence: "Evidências utilizadas", reviewed: "Passagens analisadas",
+    passage: "passagem", passages: "passagens", englishClaim: "Tradução para inglês utilizada pelo modelo",
+    originalEvidence: "Evidência original em inglês", translatedEvidence: "Tradução para português (gerada por IA)",
+    translationNote: "A afirmação foi traduzida para inglês para pesquisa e classificação. As traduções podem conter erros.",
+    confidenceNote: "A confiança é uma pontuação do modelo, não uma garantia de exatidão.", legacy: "Guardado antes da introdução da validação da entrada.",
+    explanationUnavailable: "Explicação indisponível.", explanationError: "Não foi possível gerar a explicação.",
+    retry: "Tente novamente mais tarde.", predicts: "O modelo prevê", noSpokenEvidence: "Não foram obtidas evidências, pelo que não foi feita uma previsão."
+  },
+  af: {
+    claim: "Bewering", yourClaim: "Jou bewering", completed: "Voltooi", modelResult: "Modelresultaat",
+    supports: "Ondersteun", refutes: "Weerlê", confidence: "Modelvertroue", screening: "Invoerkontrole",
+    screeningUnavailable: "Invoerkontrole onbeskikbaar", checkInput: "Kontroleer jou invoer", enterClaim: "Voer 'n feitelike bewering in",
+    noPrediction: "Geen voorspelling", noResult: "Geen resultaat", noEvidence: "Geen gedeeltes is vir hierdie bewering gevind nie.",
+    explanation: "Wat die bewyse sê", sources: "Bronne", evidence: "Bewyse gebruik", reviewed: "Gedeeltes nagegaan",
+    passage: "gedeelte", passages: "gedeeltes", englishClaim: "Engelse vertaling wat die model gebruik het",
+    originalEvidence: "Oorspronklike Engelse bewys", translatedEvidence: "Afrikaanse vertaling (deur KI gegenereer)",
+    translationNote: "Die bewering is vir soektog en klassifikasie in Engels vertaal. Vertalings kan foute bevat.",
+    confidenceNote: "Vertroue is 'n modeltelling, nie 'n waarborg van akkuraatheid nie.", legacy: "Gestoor voordat invoerkontrole bygevoeg is.",
+    explanationUnavailable: "Verduideliking onbeskikbaar.", explanationError: "Die verduideliking kon nie gegenereer word nie.",
+    retry: "Probeer asseblief later weer.", predicts: "Die model voorspel", noSpokenEvidence: "Geen bewyse is teruggestuur nie, dus is geen voorspelling gemaak nie."
+  }
+};
+
+function resultLanguage(result) {
+  return result.language === undefined ? "en" : result.language;
+}
+
 const input = document.getElementById("claimInput");
 const sendBtn = document.getElementById("sendBtn");
 const topKSelect = document.getElementById("topKSelect");
@@ -247,8 +293,9 @@ function renderChats() {
   updateChatSelection();
 }
 
-function savedDate(value) {
-  return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+function savedDate(value, language) {
+  const locale = { pt: "pt-PT", af: "af-ZA" }[language];
+  return new Date(value).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
 }
 
 async function exportCheck(record, format, feedback, button) {
@@ -299,11 +346,16 @@ function renderHistory() {
     const row = element("article", "history-row");
     const details = element("div", "history-details");
     const claim = element("h2", "history-claim", record.result.claim);
-    const label = record.result.prediction ? record.result.prediction.label :
-      record.result.status === "screening_unavailable" ? "Screening unavailable" :
-      record.result.status === "rejected" ? "Input screening" : "No prediction";
-    const summary = label + " · Top " + record.result.top_k + " · " + record.result.evidence.length + " passages · " + savedDate(record.saved_at);
-    details.append(claim, element("p", "history-summary", summary));
+    const language = resultLanguage(record.result);
+    const words = resultMessages[language];
+    const label = record.result.prediction ? words[record.result.prediction.label === "SUPPORTS" ? "supports" : "refutes"] :
+      record.result.status === "screening_unavailable" ? words.screeningUnavailable :
+      record.result.status === "rejected" ? words.screening : words.noPrediction;
+    const summary = label + " · Top " + record.result.top_k + " · " + record.result.evidence.length + " " + words.passages + " · " + savedDate(record.saved_at, language);
+    const summaryNode = element("p", "history-summary", summary);
+    summaryNode.lang = language;
+    claim.lang = language;
+    details.append(claim, summaryNode);
     const actions = element("div", "history-actions");
     const open = historyButton("Open", () => openSavedCheck(record.id), true);
     open.setAttribute("aria-label", "Open saved check: " + record.result.claim);
@@ -332,6 +384,7 @@ function renderChat(chat) {
     const thread = element("article", "verification-thread");
     thread.id = "verification-" + record.id;
     const prompt = addUserMessage(record.result.claim, thread);
+    prompt.lang = resultLanguage(record.result);
     prompt.id = "prompt-" + record.id;
     const { answer } = assistantMessage("Saved TrueCheck response", thread);
     renderResult(answer, record.result, record);
@@ -463,8 +516,9 @@ function assistantMessage(label, container = messages) {
   return { row, answer };
 }
 
-function addResponseActions(answer, text, record = null, spoken = text) {
+function addResponseActions(answer, text, record = null, spoken = text, language = "en") {
   const actions = element("div", "answer-actions");
+  actions.lang = "en";
   const copyButton = element("button", "copy-btn", "Copy response");
   copyButton.type = "button";
   const speechButton = element("button", "speak-btn", "Read aloud");
@@ -472,7 +526,7 @@ function addResponseActions(answer, text, record = null, spoken = text) {
   actions.append(copyButton, speechButton);
   const feedback = element("div", "action-feedback");
   feedback.setAttribute("role", "status");
-  window.TrueCheckSpeech.bindRead(speechButton, spoken, feedback);
+  window.TrueCheckSpeech.bindRead(speechButton, spoken, feedback, language);
   copyButton.addEventListener("click", () => copyText(text, copyButton, feedback));
   if (record) {
     const pdf = historyButton("Download PDF", () => exportCheck(record, "pdf", feedback, pdf));
@@ -658,11 +712,20 @@ function validateResult(result) {
       result.explanation.citations.some(id => typeof id !== "string")) {
     throw new Error("The server returned an unexpected response. Please retry.");
   }
+  const language = resultLanguage(result);
+  if (typeof language !== "string" || !Object.hasOwn(resultMessages, language) ||
+      (result.english_claim !== undefined && (typeof result.english_claim !== "string" ||
+        !result.english_claim.trim() || result.english_claim.length > 4000)) ||
+      (language === "en" && result.english_claim !== undefined && result.english_claim !== result.claim)) {
+    throw new Error("The server returned invalid language or translation data. Please retry.");
+  }
   const ids = new Set();
   for (const source of result.evidence) {
     if (!source || typeof source.id !== "string" || !/^E[1-9]\d*$/.test(source.id) || ids.has(source.id) ||
         typeof source.page !== "string" || typeof source.text !== "string" ||
-        typeof source.url !== "string") {
+        typeof source.url !== "string" ||
+        (source.translation !== undefined && (typeof source.translation !== "string" ||
+          !source.translation.trim() || source.translation.length > 200000))) {
       throw new Error("The server returned incomplete evidence. Please retry.");
     }
     ids.add(source.id);
@@ -683,6 +746,10 @@ function validateResult(result) {
         (screening && (screening.status !== "accepted" || result.explanation.status !== "ready"))) {
       throw new Error("The server returned an incomplete model prediction. Please retry.");
     }
+    if (language !== "en" && (!result.english_claim || !screening ||
+        result.evidence.some(source => !source.translation))) {
+      throw new Error("The server returned an incomplete translated result. Please retry.");
+    }
   } else if (result.status === "no_evidence" && (result.prediction !== null || result.evidence.length)) {
     throw new Error("The server returned an inconsistent response. Please retry.");
   } else if (["rejected", "screening_unavailable"].includes(result.status)) {
@@ -698,10 +765,13 @@ function validateResult(result) {
 
 function renderResult(answer, result, record = null) {
   answer.replaceChildren();
+  const language = resultLanguage(result);
+  const words = resultMessages[language];
+  answer.lang = language;
   if (record) {
-    answer.appendChild(element("p", "saved-result-date", "Completed " + savedDate(record.saved_at)));
+    answer.appendChild(element("p", "saved-result-date", words.completed + " " + savedDate(record.saved_at, language)));
   }
-  const copy = ["Claim: " + result.claim];
+  const copy = [words.claim + ": " + result.claim];
   const head = element("div", "answer-head");
   const blocked = ["rejected", "screening_unavailable"].includes(result.status);
   const screeningMessage = blocked ? result.screening.reason : "";
@@ -711,37 +781,48 @@ function renderResult(answer, result, record = null) {
     const ids = group.split(/,\s*/);
     return ids.every(id => sourceNumbers.has(id)) ? "[" + ids.map(id => sourceNumbers.get(id)).join(", ") + "]" : marker;
   });
-  head.appendChild(element("strong", "", blocked ? "Input screening" : "Model result"));
+  head.appendChild(element("strong", "", blocked ? words.screening : words.modelResult));
   const prediction = result.prediction;
   if (blocked) {
-    const label = result.status === "screening_unavailable" ? "Screening unavailable" :
-      result.screening.status === "invalid_input" ? "Check your input" : "Enter a factual claim";
+    const label = result.status === "screening_unavailable" ? words.screeningUnavailable :
+      result.screening.status === "invalid_input" ? words.checkInput : words.enterClaim;
     head.appendChild(element("span", "preview-badge", label));
     answer.appendChild(head);
     answer.appendChild(element("p", result.status === "screening_unavailable" ? "explanation-error" : "screening-message", screeningMessage));
     copy.push(label, screeningMessage);
   } else if (prediction) {
-    const label = prediction.label === "SUPPORTS" ? "Supports" : "Refutes";
+    const label = prediction.label === "SUPPORTS" ? words.supports : words.refutes;
     head.appendChild(element("span", "verdict model-prediction", label));
-    const confidence = "Model confidence: " + (prediction.confidence * 100).toFixed(1) + "%";
+    const confidence = words.confidence + ": " + (prediction.confidence * 100).toFixed(1) + "%";
     answer.appendChild(head);
     answer.appendChild(element("p", "confidence", confidence));
-    copy.push("Model result: " + label, confidence);
+    copy.push(words.modelResult + ": " + label, confidence);
     if (record && !result.screening) {
-      const legacyNote = "Saved before input screening was added.";
+      const legacyNote = words.legacy;
       answer.appendChild(element("p", "confidence-note", legacyNote));
       copy.push(legacyNote);
     }
   } else {
-    head.appendChild(element("span", "preview-badge", "No result"));
+    head.appendChild(element("span", "preview-badge", words.noResult));
     answer.appendChild(head);
-    const empty = "No passages were found for this claim.";
+    const empty = words.noEvidence;
     answer.appendChild(element("p", "", empty));
     copy.push(empty);
   }
+  if (language !== "en" && result.english_claim) {
+    const translation = element("div", "claim-translation");
+    translation.appendChild(element("h3", "", words.englishClaim));
+    const englishClaim = element("p", "", result.english_claim);
+    englishClaim.lang = "en";
+    translation.appendChild(englishClaim);
+    answer.appendChild(translation);
+    copy.push(words.englishClaim + ": " + result.english_claim);
+    answer.appendChild(element("p", "translation-note", words.translationNote));
+    copy.push(words.translationNote);
+  }
   const explanation = result.explanation;
   const showExplanation = !blocked && result.status !== "no_evidence";
-  if (showExplanation) answer.appendChild(element("h3", "", "What the evidence says"));
+  if (showExplanation) answer.appendChild(element("h3", "", words.explanation));
   if (showExplanation && explanation.status === "ready") {
     for (const paragraph of explanation.summary.split(/\n\s*\n/).filter(text => text.trim())) {
       const node = element("p", "explanation-summary");
@@ -760,20 +841,20 @@ function renderResult(answer, result, record = null) {
       node.appendChild(document.createTextNode(paragraph.slice(end)));
       answer.appendChild(node);
     }
-    copy.push("What the evidence says", readableSummary);
+    copy.push(words.explanation, readableSummary);
     if (explanation.citations.length) {
       const citations = element("div", "citation-list");
-      citations.appendChild(element("span", "", "Sources:"));
+      citations.appendChild(element("span", "", words.sources + ":"));
       for (const id of explanation.citations) {
         const source = result.evidence.find(item => item.id === id);
         citations.appendChild(sourceLink(source, citationLabel(id)));
       }
       answer.appendChild(citations);
-      copy.push("Sources: " + explanation.citations.map(citationLabel).join(" "));
+      copy.push(words.sources + ": " + explanation.citations.map(citationLabel).join(" "));
     }
   } else if (showExplanation) {
-    const title = explanation.status === "unavailable" ? "Explanation unavailable." : "Explanation could not be generated.";
-    const reason = typeof explanation.reason === "string" ? explanation.reason : "Please try again later.";
+    const title = explanation.status === "unavailable" ? words.explanationUnavailable : words.explanationError;
+    const reason = typeof explanation.reason === "string" ? explanation.reason : words.retry;
     answer.appendChild(element("p", "explanation-error", title + " " + reason));
     copy.push(title + " " + reason);
   }
@@ -781,8 +862,8 @@ function renderResult(answer, result, record = null) {
   if (result.evidence.length) {
     const evidence = element("section", "evidence");
     const count = result.evidence.length;
-    const heading = (blocked ? "Passages reviewed" : "Evidence used") + " · " + count + (count === 1 ? " passage" : " passages");
-    evidence.setAttribute("aria-label", blocked ? "Passages reviewed" : "Evidence used");
+    const heading = (blocked ? words.reviewed : words.evidence) + " · " + count + " " + (count === 1 ? words.passage : words.passages);
+    evidence.setAttribute("aria-label", blocked ? words.reviewed : words.evidence);
     evidence.appendChild(element("h3", "evidence-title", heading));
     copy.push(heading);
     result.evidence.forEach(source => {
@@ -792,24 +873,35 @@ function renderResult(answer, result, record = null) {
       const content = element("div", "source-content");
       const label = citationLabel(source.id) + " " + source.page.replaceAll("_", " ");
       content.appendChild(sourceLink(source, label));
-      content.appendChild(element("p", "source-text", source.text));
+      if (language !== "en") content.appendChild(element("p", "evidence-language-label", words.originalEvidence));
+      const originalText = element("p", "source-text", source.text);
+      originalText.lang = "en";
+      content.appendChild(originalText);
+      if (language !== "en" && source.translation) {
+        content.appendChild(element("p", "evidence-language-label", words.translatedEvidence));
+        const translatedText = element("p", "source-text translated-evidence", source.translation);
+        translatedText.lang = language;
+        content.appendChild(translatedText);
+      }
       item.append(mark, content);
       evidence.appendChild(item);
       const url = wikipediaUrl(source.url);
-      copy.push(label + "\n" + source.text + (url ? "\n" + url : ""));
+      copy.push(label + "\n" + (language !== "en" ? words.originalEvidence + ":\n" : "") + source.text +
+        (language !== "en" && source.translation ? "\n\n" + words.translatedEvidence + ":\n" + source.translation : "") +
+        (url ? "\n" + url : ""));
     });
     answer.appendChild(evidence);
   }
   if (prediction) {
-    const confidenceNote = "Confidence is a model score, not a guarantee of accuracy.";
+    const confidenceNote = words.confidenceNote;
     answer.appendChild(element("p", "confidence-note result-footnote", confidenceNote));
     copy.push(confidenceNote);
   }
-  const spoken = ["Your claim: " + result.claim,
-    blocked ? screeningMessage : prediction ? "The model predicts " + prediction.label.toLowerCase() + "." : "No evidence was returned, so no prediction was made.",
-    !showExplanation ? "" : explanation.status === "ready" ? explanation.summary : "Explanation unavailable. " + (explanation.reason || "Please retry later.")
+  const spoken = [words.yourClaim + ": " + result.claim,
+    blocked ? screeningMessage : prediction ? words.predicts + " " + words[prediction.label === "SUPPORTS" ? "supports" : "refutes"].toLowerCase() + "." : words.noSpokenEvidence,
+    !showExplanation ? "" : explanation.status === "ready" ? explanation.summary : words.explanationUnavailable + " " + (explanation.reason || words.retry)
   ].filter(Boolean).join("\n\n").replace(/\[E[1-9]\d*(?:,\s*E[1-9]\d*)*\]/g, "").replace(/https?:\/\/\S+/gi, "");
-  addResponseActions(answer, copy.join("\n\n"), record, spoken);
+  addResponseActions(answer, copy.join("\n\n"), record, spoken, language);
 }
 
 function verificationErrorMessage(status, result) {

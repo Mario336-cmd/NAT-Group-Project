@@ -177,6 +177,12 @@ textarea::placeholder,input::placeholder { color:var(--muted); opacity:1; }
 .source-link { color:var(--blue-dark); text-decoration:underline; }
 .explanation-summary .source-link { display:inline; font-size:inherit; line-height:inherit; }
 .source .source-text { margin:5px 0 0; color:#4d5e76; font-size:1rem; line-height:1.75; }
+.source .evidence-language-label { margin:12px 0 3px; color:var(--text); font-size:0.875rem; line-height:1.6; font-weight:600; }
+.source .translated-evidence { padding-left:12px; border-left:3px solid var(--control-border); white-space:pre-wrap; }
+.claim-translation { margin:17px 0 9px; padding:12px 14px; border:1px solid var(--border); border-radius:8px; }
+.claim-translation h3 { margin:0 0 5px; font-size:0.875rem; line-height:1.6; }
+.answer .claim-translation p { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.answer .translation-note { margin:9px 0 18px; color:var(--muted); font-size:0.875rem; line-height:1.6; }
 .answer-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:21px; padding-top:17px; border-top:1px solid #edf1f6; }
 .answer-actions button,.history-clear,.history-actions button,.configuration-card button,.extraction-actions button,.verification-cancel { min-height:44px; padding:8px 12px; border:1px solid var(--control-border); border-radius:8px; color:#526178; background:var(--white); font-size:0.875rem; font-weight:500; line-height:1.5; }
 .answer-actions button:hover:not(:disabled),.history-actions button:hover:not(:disabled),.configuration-secondary:hover:not(:disabled),.extraction-actions button:hover:not(:disabled),.verification-cancel:hover:not(:disabled) { border-color:#bdcce0; background:#f5f8fc; color:var(--text); }
